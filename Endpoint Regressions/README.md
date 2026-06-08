@@ -1,0 +1,1 @@
+In some circumstances, the endpoint of a titration where n>30 can be estimated via linear regression. This script plots the titration and estimates the endpoint with a linear regression. This script requires each titration file to be read in, which were manually created from the .DAT_TRT files for each titration that required an endpoint regression.
