@@ -1,0 +1,137 @@
+---
+title: "Titration Endpoint Regressions"
+format: html
+embed-resources: true
+lightbox: true
+code-overflow: wrap
+include-in-header:
+  - text: |
+      <style>
+      .cell-output-stdout code {
+        word-break: break-wor !important;
+        white-space: pre-wrap !important;
+      }
+      </style>
+---
+
+Linear regressions for titrations that exceeded 30 points (n>30). For titrations close to finishing, the endpoint can be determined via linear regression, with the intercept as the endpoint. Below are regressions for samples where n>30. The regressions were run with points where the current was less than 5uA. 
+
+```{python}
+
+#| echo: false
+#| warning: false
+
+##Estimation of endpoint via linear regression##
+#For circumstances when n>30, titration times out
+#Just do a linear regression with current on the x-axis and microliters of thio on the y-axis.  The y-intercept will be a close approximation of the endpoint. -C. Langdon
+
+#import modules
+import numpy as np
+import pandas as pd
+import scipy as sp
+from scipy import stats
+import matplotlib.pyplot as plt 
+
+#loop for multiple regressions--file names built on station and flask number, create lists of both
+stn_list = ['stn names']
+
+flsk_list = [1]
+
+
+for i, j in zip(stn_list, flsk_list): 
+
+  #define station and flask for automation
+  stn = i
+  flsk = j
+
+  #file name
+  trt_file = r"C:\Users\rc_local\Documents\A16S O2\Regression Files\A16S_{}_{}.csv".format(stn, flsk)
+
+  #read in csv with
+  df = pd.read_csv(trt_file)
+
+  #print dataframe
+  #print(df)
+
+  #convert to numpy arrays 
+  uL_thio = df['uL_thio'].to_numpy() 
+  current = df['current'].to_numpy()
+
+  #plot current and thio 
+  fig, (ax1, ax2) = plt.subplots(1, 2, figsize = (8,3), layout = 'constrained')
+  ax1.scatter(current, uL_thio, color = "b", marker = "o", s = 30)
+
+  #invert axis
+  plt.xlim(max(current), min(current))
+  plt.ylim(max(uL_thio), min(uL_thio))
+
+  #label axis
+  ax1.set_xlabel('current (uA)')
+  ax1.set_ylabel('thio (uL)')
+  title_str1 = 'Titration Plot'
+  ax1.set_title(title_str1);
+
+
+  #slice out current <5
+  uL_thio_5 = uL_thio[current<5]
+  current_5 = current[current<5]
+
+  #linear regression via scipy
+
+  slope, intercept, r, p, std_err = stats.linregress(current_5, uL_thio_5) 
+
+  def myfunc(current_5):
+    return slope * current_5 + intercept
+
+  mymodel = list(map(myfunc, current_5))
+
+  #plot titration
+
+  ax2.scatter(current_5, uL_thio_5, color = "m", marker = "o")
+
+  #invert axis
+  plt.xlim(max(current_5), min(current_5))
+  plt.ylim(max(uL_thio_5), min(uL_thio_5))
+
+  #plot best fit line
+  ax2.plot(current_5, mymodel, color = "g")
+
+  #label axis
+  ax2.set_xlabel('current (uA)')
+  #ax2.set_ylabel('thio (uL)')
+
+  int_str = 'y-intercept: {}'.format(round(intercept,2))
+  title_str2 = 'Linear Regression (<5uA)'
+  ax2.legend(title = int_str)
+  ax2.set_title(title_str2);
+
+  title_str = 'Station {} Flask {}'.format(stn, flsk)
+  fig.suptitle(title_str);
+
+  #calculate regression coefficients
+  #run regression for current < 5
+
+  #rename
+  x = current_5
+  y = uL_thio_5
+
+  def estimate_coef(x, y):
+    # number of observations/points
+    n = np.size(x)
+
+    # mean of x and y vector
+    m_x = np.mean(x)
+    m_y = np.mean(y)
+
+    # calculating cross-deviation and deviation about x
+    SS_xy = np.sum(y*x) - n*m_y*m_x
+    SS_xx = np.sum(x*x) - n*m_x*m_x
+
+    # calculating regression coefficients
+    b_1 = SS_xy / SS_xx
+    b_0 = m_y - b_1*m_x
+
+    return (b_0, b_1)
+
+  estimate_coef(x,y)
+```
