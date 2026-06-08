@@ -1,0 +1,99 @@
+---
+title: "A16S O2 Plots"
+format: html
+embed-resources: true
+lightbox: true
+---
+GO-SHIP A16S 2026 plots showing CTD oxygen sensor versus discrete samples. All data is preliminary for QC purposes. Values flagged as a 4 are plotted as an X. 
+```{python}
+#| echo: false
+#| include: false 
+
+#import modules
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+```
+
+```{python}
+#| echo: false
+#| warning: false
+
+
+#read in o2 file--long qc version
+#define file name
+o2_qc_file = r"C:\Users\rachel.cohn\Documents\GO-SHIP\GO-SHIP A16S\A16S O2\A16S O2 Data QC.csv"
+#read in file
+o2_qc = pd.read_csv(o2_qc_file, header = 0)
+
+#rename Nsk column in o2 df to Bottle to match btl file in order to merge
+o2_qc.rename(columns={'niskin': 'Bottle'}, inplace=True)
+
+#change niskin data type to string
+o2_qc['Bottle'] = o2_qc['Bottle'].astype(str)
+
+#Solution to read all stations in a single loop
+#not the easiest or cleanest solution, but what I could do at the time
+
+#The loop below relies on this station list to read in the btl files
+#read in station file
+stn_list = pd.read_csv(r"C:\Users\rachel.cohn\Documents\GO-SHIP\GO-SHIP A16S\A16S O2\A16S_Stn_List.csv", dtype={'station': str})
+
+#This loop reads in each btl file individually and creates a new data frame for each station by combining the btl file and the discrete o2 data sliced out from the o2 qc file
+for a, b, c, d in zip(stn_list.station, stn_list.cast, stn_list.skiprows, stn_list.stn_num):
+
+    #define station
+    stn = a
+    cast = b
+    skipr = c
+    stn_num = d
+
+
+    #read in btl file
+    btl_file = r"C:\Users\rachel.cohn\Documents\GO-SHIP\GO-SHIP A16S\A16S O2\bottle\rh1{}{}.btl".format(stn, cast)
+    btl = pd.read_fwf(btl_file, header = 0, skiprows = skipr)
+
+    #remove every other row from btl data frame--to clear out blank rows/avgs
+    btl_clean = btl.iloc[1::2, :]
+
+    #pull out station from o2 qc file
+    o2 = o2_qc[o2_qc.station == stn_num]
+
+    #merge dataframes
+    o2_merged = pd.merge(btl_clean, o2, on = 'Bottle')
+
+    #calculate offset
+    o2_merged['offset'] = o2_merged['o2 umol/kg'] - o2_merged['Sbox0Mm/Kg']
+
+    #average offset
+    avg_offset = np.nanmean(o2_merged['offset'])
+    offset_str = 'Average Offset: {}umol/kg'.format(round(avg_offset,2))
+
+    #for discrete o2, plot positive data only (to not mess up plot)
+    o2_merged['o2 umol/kg pos'] = o2_merged['o2 umol/kg'][o2_merged['o2 umol/kg'] > 0]
+    o2_merged['PrDM pos'] = o2_merged['PrDM'][o2_merged['o2 umol/kg'] > 0]
+
+    pos_mask = o2_merged['o2 umol/kg'] > 0
+    qc23_mask = o2_merged['QC flag'] < 4
+    qc4_mask = o2_merged['QC flag'] == 4
+
+    comb_mask23 = (pos_mask) & (qc23_mask)
+    comb_mask4 = (pos_mask) & (qc4_mask)
+
+    #plot profile 
+    fig, ax = plt.subplots(figsize = (6, 9))
+    ax.plot(o2_merged['Sbox0Mm/Kg'], o2_merged['PrDM'], color = 'blue', marker = 'o', linestyle = 'dotted', label = 'CTD O2')
+    ax.plot(o2_merged['o2 umol/kg'][comb_mask23], o2_merged['PrDM'][comb_mask23], color = 'orangered', marker = 'o', linestyle = 'dotted', label = 'Discrete O2')
+    ax.plot(o2_merged['o2 umol/kg'][comb_mask4], o2_merged['PrDM'][comb_mask4], color = 'orangered', marker = 'x', linestyle = 'none')
+    ax.invert_yaxis()
+
+    #plot accoutrements 
+    ax.set_xlabel('O2 (umol/kg)')
+    ax.set_ylabel('Pressure (dbar)')
+    ax.legend(title = offset_str)
+    plt.grid()
+    title_str = 'A16S 2026 Station {}'.format(stn_num)
+    plt.title(title_str);
+
+    plt.show()
+```
