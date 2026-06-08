@@ -1,0 +1,1 @@
+Linear regressions run on A16S for titrations where n>30. This script requires each titration file to be read in, which were manually created from the .DAT_TRT files for each titration that required an endpoint regression. Not all titrations where n>30 may be suitable to EP estimation via linear regression.
